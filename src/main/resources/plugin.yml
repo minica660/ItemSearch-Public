@@ -1,0 +1,6 @@
+name: ItemSearch
+version: '${version}'
+
+main: MiniCash.ItemSearch
+api-version: '1.21.11'
+load: POSTWORLD
