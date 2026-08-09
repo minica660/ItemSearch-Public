@@ -3,6 +3,7 @@ package MiniCash.listener;
 import MiniCash.ItemSearch;
 import MiniCash.model.ContainerModel;
 import MiniCash.model.ItemData;
+import MiniCash.util.CustomModelDataUtil;
 import MiniCash.util.ItemSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Location;
@@ -98,9 +99,13 @@ public class InventoryClosedEvent implements Listener {
                 } else {
 
                     ItemMeta itemMeta = item.getItemMeta();
-                    int customModelData = getCustomModelData(itemMeta);
+                    Integer customModelData = CustomModelDataUtil.getCustomModelData(itemMeta);
 
-                    String displayName = (itemMeta != null && itemMeta.hasDisplayName()) ? itemMeta.getDisplayName() : null;
+                    String displayName = null;
+
+                    if (itemMeta != null && itemMeta.hasDisplayName()) {
+                        displayName = PlainTextComponentSerializer.plainText().serialize(itemMeta.itemName());
+                    }
 
                     ItemData itemData = new ItemData(
                             hash,
@@ -134,7 +139,7 @@ public class InventoryClosedEvent implements Listener {
                             itemMap.get(subHash).addAmount(subItem.getAmount());
                         } else {
                             ItemMeta subMeta = subItem.getItemMeta();
-                            Integer subCustomModelData = getCustomModelData(subMeta);
+                            Integer subCustomModelData = CustomModelDataUtil.getCustomModelData(subMeta);
                             String subDisplayName = null;
 
 
@@ -189,23 +194,7 @@ public class InventoryClosedEvent implements Listener {
     }
 
 
-    public Integer getCustomModelData(ItemMeta itemMeta){
 
-        if(itemMeta == null){
-            return null;
-        }
-
-        if (itemMeta.hasCustomModelDataComponent()) {
-            CustomModelDataComponent customModelDataComponent = itemMeta.getCustomModelDataComponent();
-            if (!customModelDataComponent.getFloats().isEmpty()) {
-
-                return customModelDataComponent.getFloats().get(0).intValue();
-
-            }
-        }
-
-        return null;
-    }
 
 
 

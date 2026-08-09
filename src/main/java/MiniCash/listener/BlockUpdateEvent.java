@@ -1,5 +1,6 @@
 package MiniCash.listener;
 
+import MiniCash.Database.DatabaseManager;
 import MiniCash.ItemSearch;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
@@ -22,42 +23,48 @@ public class BlockUpdateEvent implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        Block block = event.getBlock();
-
-        // チェストやドロッパーなどのコンテナブロックか判定
-        if (block.getState() instanceof Container container) {
-            Location location = block.getLocation();
-            String world = location.getWorld().getName();
-            int x = location.getBlockX();
-            int y = location.getBlockY();
-            int z = location.getBlockZ();
-
-            // 削除用の container_id を生成
-            String containerId = "BLOCK_" + plugin.getServer().getName() + "_" + world + "_" + x + "_" + y + "_" + z;
-
-            // DB から DELETE 実行
-
-
-        }
+        handleBlockRemove(event.getBlock());
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onEntityExplode(EntityExplodeEvent event) {
-
+        for (Block block : event.blockList()) {
+            handleBlockRemove(block);
+        }
     }
 
 
     @EventHandler(ignoreCancelled = true)
     public void onBlockExplode(BlockExplodeEvent event) {
+        for (Block block : event.blockList()) {
+            handleBlockRemove(block);
+        }
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onStructureGrow(StructureGrowEvent event) {
+
+
+
+    /**
+     * ブロックがコンテナであればDBからレコードを削除するメソッドです
+     */
+    private void handleBlockRemove(Block block) {
+
+        if (!(block.getState() instanceof Container)) {
+            return;
+        }
+
+        Location location = block.getLocation();
+        String worldName = block.getWorld().getName();
+        int x = location.getBlockX();
+        int y = location.getBlockY();
+        int z = location.getBlockZ();
+
+        String containerId = "BLOCK_" + plugin.getServer().getName() + "_" + worldName + "_" + x + "_" + y + "_" + z;
+
+        DatabaseManager.deleteContainerData(containerId);
+
     }
 
-    @EventHandler(ignoreCancelled = true)
-    public void onPistonRetract(BlockPistonRetractEvent event) {
-    }
 
 
 }

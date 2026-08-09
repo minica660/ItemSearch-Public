@@ -4,3 +4,6 @@ version: '${version}'
 main: MiniCash.ItemSearch
 api-version: '1.21.11'
 load: POSTWORLD
+description: サーバー内のアイテムが現在どこにあるか調べるプラグイン！
+authors:
+  - MiniCash
