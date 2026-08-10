@@ -7,10 +7,12 @@ import MiniCash.listener.PlayerLeaveEvent;
 import MiniCash.util.ItemSerializer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ItemSearch extends JavaPlugin {
+
+    private static String serverName;
 
     @Override
     public void onEnable() {
@@ -21,6 +23,8 @@ public final class ItemSearch extends JavaPlugin {
 
         saveDefaultConfig();
 
+        ItemSearch.serverName = getConfig().getString("server-name");
+
         DatabaseManager.connect();
 
         getServer().getPluginManager().registerEvents(new InventoryClosedEvent(this), this);
@@ -30,6 +34,9 @@ public final class ItemSearch extends JavaPlugin {
         registerCommand("itemsearch",new MiniCash.commands.ItemSearch(this));
 
 
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+            DatabaseManager.logWholeServerItemCount(5);
+        }, 1200L, 72000L);
     }
 
     @Override
@@ -42,6 +49,10 @@ public final class ItemSearch extends JavaPlugin {
         return Component.text("[").color(NamedTextColor.GRAY).append(Component.text("ItemSearch").color(NamedTextColor.GREEN).append(Component.text("]").color(NamedTextColor.GRAY)
                 .append(message)
         ));
+    }
+
+    public static String getServerName(){
+        return serverName;
     }
 
 }

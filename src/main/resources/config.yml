@@ -4,3 +4,5 @@ mysql:
   user: root
   password: pass
   database: itemsearch
+
+server-name: server1

@@ -93,6 +93,7 @@ public class DatabaseManager {
         String sql = """
                 
                     CREATE TABLE IF NOT EXISTS `item_database` (
+                    `id` BIGINT NOT NULL AUTO_INCREMENT,    
                     `container_id` VARCHAR(256) NOT NULL,    -- 例: "server1_world_100_64_-200" または "PLAYER_UUID"
                     `container_type` VARCHAR(64) NOT NULL,    -- "CHEST", "DROPPER", "ENDER_CHEST", "PLAYER" など
                     `item_hash` VARCHAR(32) NOT NULL,
@@ -110,9 +111,11 @@ public class DatabaseManager {
                     `final_editor_name` VARCHAR(32) NULL,     -- 最後に操作したプレイヤー名
                     `final_editor_uuid` VARCHAR(64) NULL,     -- 最後に操作したプレイヤーUUID   
                     `last_date` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    PRIMARY KEY (`container_id`, `material`, `item_hash`),
-                        INDEX `idx_search` (`material`, `custom_model_data`),
-                        INDEX `idx_editor` (`final_editor_uuid`)
+                    PRIMARY KEY (`id`),
+                    INDEX `idx_container` (`container_id`),
+                    INDEX `idx_hash` (`item_hash`),
+                    INDEX `idx_search` (`material`, `custom_model_data`),
+                    INDEX `idx_editor` (`final_editor_uuid`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """;
 
@@ -123,12 +126,14 @@ public class DatabaseManager {
                     `id` BIGINT NOT NULL AUTO_INCREMENT,
                     `final_editor_name` VARCHAR(64) NULL,
                     `final_editor_uuid` VARCHAR(64) NULL,
+                    `item_hash` VARCHAR(32) NOT NULL,
                     `material` VARCHAR(64) NOT NULL,
                     `item_count` INT NOT NULL,
                     `custom_model_data` INT NULL,
                     `date_time` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
                     PRIMARY KEY (`id`),
-                    INDEX `idx_log_search` (`material`, `date_time`)
+                    INDEX `idx_log_search` (`material`, `date_time`),
+                    INDEX `idx_log_user` (`final_editor_uuid`, `date_time`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """;
 
@@ -320,10 +325,10 @@ public class DatabaseManager {
      * 条件に応じたアイテムの検索
      */
     public static CompletableFuture<List<SearchResult>> searchItems(
-            Material material, Integer customModelData, String displayName, String editor, String world, Integer nearX, Integer nearZ, Integer radius) {
+            Material material, Integer customModelData, String displayName, String editor, String world, Integer nearX, Integer nearZ, Integer radius , String itemHash) {
 
 
-        return java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(() -> {
 
             List<SearchResult> results = new ArrayList<>();
 
@@ -336,18 +341,27 @@ public class DatabaseManager {
             StringBuilder sql = new StringBuilder("SELECT * FROM `item_database` WHERE 1=1 ");
             List<Object> params = new java.util.ArrayList<>();
 
-            if (material != null) {
-                sql.append("AND `material` = ? ");
-                params.add(material.name());
+            if (itemHash != null && !itemHash.isEmpty()) {
+
+                sql.append("AND `item_hash` = ? ");
+                params.add(itemHash);
+
+            } else {
+
+                if (material != null) {
+                    sql.append("AND `material` = ? ");
+                    params.add(material.name());
+                }
+                if (customModelData != null) {
+                    sql.append("AND `custom_model_data` = ? ");
+                    params.add(customModelData);
+                }
+                if (displayName != null && !displayName.isEmpty()) {
+                    sql.append("AND `display_name` LIKE ? ");
+                    params.add("%" + displayName + "%");
+                }
             }
-            if (customModelData != null) {
-                sql.append("AND `custom_model_data` = ? ");
-                params.add(customModelData);
-            }
-            if (displayName != null && !displayName.isEmpty()) {
-                sql.append("AND `display_name` LIKE ? ");
-                params.add("%" + displayName + "%");
-            }
+
             if (editor != null && !editor.isEmpty()) {
                 sql.append("AND (`final_editor_name` = ? OR `final_editor_uuid` = ?) ");
                 params.add(editor);
@@ -408,5 +422,48 @@ public class DatabaseManager {
 
 
     }
+
+
+
+    /**
+     * 定期的にサーバー全体の特定のアイテム保有状況を集計し、item_logへ記録
+     * * @param minCount ログに記録する最小個数のしきい値 (例: 5個以上)
+     */
+    public static void logWholeServerItemCount(int minCount) {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            if (hikariSe == null || hikariSe.isClosed()) {
+                return;
+            }
+
+            String sql = """
+            INSERT INTO item_log (
+                `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
+                `item_count`, `custom_model_data`, `date_time`
+            )
+            SELECT 
+                `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
+                SUM(`amount`) as `item_count`, `custom_model_data`, NOW()
+            FROM `item_database`
+            WHERE `final_editor_uuid` IS NOT NULL
+            GROUP BY `final_editor_uuid`, `final_editor_name`, `item_hash`, `material`, `custom_model_data`
+            HAVING `item_count` >= ?
+            ORDER BY `item_count` DESC;
+        """;
+
+            try (Connection conn = hikariSe.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+                pstmt.setInt(1, minCount);
+                int rowsAffected = pstmt.executeUpdate();
+
+                plugin.getLogger().info("定期集計ログを作成しました　記録件数: " + rowsAffected + "件");
+
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "item_logへの定期集計記録中にエラーが発生しました", e);
+            }
+        });
+    }
+
+
 
 }

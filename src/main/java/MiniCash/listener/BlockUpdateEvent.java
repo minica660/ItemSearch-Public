@@ -59,7 +59,7 @@ public class BlockUpdateEvent implements Listener {
         int y = location.getBlockY();
         int z = location.getBlockZ();
 
-        String containerId = "BLOCK_" + plugin.getServer().getName() + "_" + worldName + "_" + x + "_" + y + "_" + z;
+        String containerId = "BLOCK_" + ItemSearch.getServerName() + "_" + worldName + "_" + x + "_" + y + "_" + z;
 
         DatabaseManager.deleteContainerData(containerId);
 

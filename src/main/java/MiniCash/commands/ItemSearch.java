@@ -2,6 +2,7 @@ package MiniCash.commands;
 
 import MiniCash.Database.DatabaseManager;
 import MiniCash.model.SearchResult;
+import MiniCash.util.ItemSerializer;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import net.kyori.adventure.text.Component;
@@ -16,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.jspecify.annotations.Nullable;
 
+import java.text.SimpleDateFormat;
 import java.util.Collection;
 import java.util.List;
 
@@ -33,6 +35,8 @@ public class ItemSearch implements BasicCommand {
             commandSourceStack.getSender().sendMessage(
                     Component.text("このコマンドはプレイヤーのみ実行可能です").color(NamedTextColor.RED)
             );
+
+            return;
         }
 
         Player player = (Player) commandSourceStack.getSender();
@@ -49,22 +53,22 @@ public class ItemSearch implements BasicCommand {
         String user = null;
         String world = null;
         Integer x = null, z = null, radius = null;
+        String itemHash = null;
 
         switch (sub) {
             case "hand" -> {
                 ItemStack handItem = player.getInventory().getItemInMainHand();
-                if (handItem.getType().isAir()) {
+                if (handItem == null || handItem.getType().isAir()) {
                     player.sendMessage(Component.text("メインハンドにアイテムを持っていません", NamedTextColor.RED));
                     return;
                 }
-                material = handItem.getType();
-                ItemMeta meta = handItem.getItemMeta();
-                if (meta != null && meta.hasCustomModelDataComponent()) {
-                    CustomModelDataComponent cmdComp = meta.getCustomModelDataComponent();
-                    if (!cmdComp.getFloats().isEmpty()) {
-                        cmd = cmdComp.getFloats().get(0).intValue();
-                    }
-                }
+
+                ItemStack item = handItem.clone();
+                item.setAmount(1);
+
+                String base64 = ItemSerializer.itemSerializer(item);
+                itemHash = ItemSerializer.getMD5Hash(base64);
+
             }
             case "mat" -> {
                 if (args.length < 2) {
@@ -111,7 +115,7 @@ public class ItemSearch implements BasicCommand {
 
         player.sendMessage(Component.text("🔍 データベースを検索中...", NamedTextColor.DARK_AQUA));
 
-        DatabaseManager.searchItems(material, cmd, name, user, world, x, z, radius).thenAccept(results -> {
+        DatabaseManager.searchItems(material, cmd, name, user, world, x, z, radius , itemHash).thenAccept(results -> {
             plugin.getServer().getScheduler().runTask(plugin, () -> renderCoreProtectStyle(player, results));
         });
 
@@ -121,16 +125,19 @@ public class ItemSearch implements BasicCommand {
     }
 
     private void renderCoreProtectStyle(Player player, List<SearchResult> results) {
+
         if (results.isEmpty()) {
-            player.sendMessage(Component.text("該当するアイテムは見つかりませんでした。", NamedTextColor.RED));
+            player.sendMessage(Component.text("該当するアイテムは見つかりませんでした", NamedTextColor.RED));
             return;
         }
 
-        player.sendMessage(Component.text("----- MiniCash Item Search Result (" + results.size() + "件) -----", NamedTextColor.DARK_AQUA, TextDecoration.BOLD));
+        player.sendMessage(Component.text("----- Item Search Result (" + results.size() + "件) -----", NamedTextColor.DARK_AQUA, TextDecoration.BOLD));
 
         for (SearchResult res : results) {
 
-            String timeStr = res.lastDate() != null ? dateFormat.format(res.lastDate()) : "--:--";
+            String timeStr = (res.lastDate() != null)
+                    ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(res.lastDate())
+                    : "--:--";
 
             Component line1 = Component.text(timeStr + " ", NamedTextColor.GRAY)
                     .append(Component.text(res.containerType() + " ", NamedTextColor.DARK_AQUA));
@@ -196,7 +203,31 @@ public class ItemSearch implements BasicCommand {
 
     @Override
     public Collection<String> suggest(CommandSourceStack commandSourceStack, String[] args) {
-        return BasicCommand.super.suggest(commandSourceStack, args);
+        if (args.length == 1) {
+            return List.of("hand", "mat", "name", "user", "near");
+        }
+
+        if (args.length == 2) {
+            String sub = args[0].toLowerCase();
+            if ("mat".equals(sub)) {
+                String input = args[1].toLowerCase();
+                return java.util.Arrays.stream(Material.values())
+                        .filter(m -> !m.isAir())
+                        .map(m -> m.name().toLowerCase())
+                        .filter(name -> name.startsWith(input))
+                        .limit(20) // 候補過多によるラグ防止
+                        .toList();
+            } else if ("user".equals(sub)) {
+                return org.bukkit.Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                        .toList();
+            } else if ("near".equals(sub)) {
+                return List.of("10", "30", "50", "100");
+            }
+        }
+
+        return List.of();
     }
 
     @Override

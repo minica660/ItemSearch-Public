@@ -7,6 +7,7 @@ import MiniCash.model.ItemData;
 import MiniCash.util.CustomModelDataUtil;
 import MiniCash.util.ItemSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -29,12 +30,44 @@ public class PlayerLeaveEvent implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event){
         Player player = event.getPlayer();
-        Inventory inventory = player.getInventory();
+        String serverName = ItemSearch.getServerName();
+        String worldName = player.getWorld().getName();
+        String uuid = player.getUniqueId().toString();
 
-        String containerId = "PLAYER_INVENTORY_" + plugin.getServer().getName() + "_" + player.getUniqueId();
+
+        String inventoryContainerID = "PLAYER_INVENTORY_" + serverName + "_" + uuid;
+
+        Map<String, ItemData> inventoryMap = parseInventoryContents(player.getInventory().getContents());
+
+        ContainerModel invModel = new ContainerModel(
+                inventoryContainerID, "PLAYER",
+                player.getName(), uuid,
+                serverName, worldName,
+                null, null, null, inventoryMap
+        );
+        DatabaseManager.saveContainerData(invModel);
+
+        String enderChestContainerID = "PLAYER_ENDERCHEST_" + uuid;
+        Map<String, ItemData> enderchestItemMap = parseInventoryContents(player.getEnderChest().getContents());
+
+        ContainerModel ecModel = new ContainerModel(
+                enderChestContainerID, "ENDER_CHEST",
+                player.getName(), uuid,
+                serverName, worldName,
+                null, null, null, enderchestItemMap
+        );
+        DatabaseManager.saveContainerData(ecModel);
+
+    }
+
+
+    /**
+     * インベントリ内のアイテム（シュルカーボックス内包物含む）を解析して Map 化する共通処理
+     */
+    private Map<String, ItemData> parseInventoryContents(ItemStack[] contents) {
         Map<String, ItemData> itemMap = new HashMap<>();
 
-        for (ItemStack item : inventory.getContents()) {
+        for (ItemStack item : contents) {
             if (item == null || item.getType().isAir()) {
                 continue;
             }
@@ -50,7 +83,9 @@ public class PlayerLeaveEvent implements Listener {
                 String displayName = null;
 
                 if (itemMeta != null && itemMeta.hasDisplayName()) {
-                    displayName = PlainTextComponentSerializer.plainText().serialize(itemMeta.itemName());
+                    displayName = PlainTextComponentSerializer.plainText().serialize(
+                            itemMeta.displayName() != null ? itemMeta.displayName() : itemMeta.itemName()
+                    );
                 }
 
                 ItemData itemData = new ItemData(
@@ -65,9 +100,9 @@ public class PlayerLeaveEvent implements Listener {
                 itemMap.put(hash, itemData);
             }
 
-            // シュルカーボックス
+            // シュルカーボックス内部の解析
             ItemMeta itemMeta = item.getItemMeta();
-            if (itemMeta instanceof BlockStateMeta blockStateMeta && blockStateMeta.getBlockState() instanceof org.bukkit.block.ShulkerBox shulkerBox) {
+            if (itemMeta instanceof BlockStateMeta blockStateMeta && blockStateMeta.getBlockState() instanceof ShulkerBox shulkerBox) {
                 for (ItemStack subItem : shulkerBox.getInventory().getContents()) {
                     if (subItem == null || subItem.getType().isAir()) {
                         continue;
@@ -84,7 +119,9 @@ public class PlayerLeaveEvent implements Listener {
                         String subDisplayName = null;
 
                         if (subMeta != null && subMeta.hasDisplayName()) {
-                            subDisplayName = PlainTextComponentSerializer.plainText().serialize(subMeta.itemName());
+                            subDisplayName = PlainTextComponentSerializer.plainText().serialize(
+                                    subMeta.displayName() != null ? subMeta.displayName() : subMeta.itemName()
+                            );
                         }
 
                         ItemData subItemData = new ItemData(
@@ -102,16 +139,7 @@ public class PlayerLeaveEvent implements Listener {
             }
         }
 
-        ContainerModel containerModel = new ContainerModel(
-                containerId, "PLAYER",
-                player.getName(), player.getUniqueId().toString(),
-                plugin.getServer().getName(), player.getWorld().getName(),
-                null, null, null, itemMap
-        );
-
-        // DBに保存
-        DatabaseManager.saveContainerData(containerModel);
-
+        return itemMap;
     }
 
 }

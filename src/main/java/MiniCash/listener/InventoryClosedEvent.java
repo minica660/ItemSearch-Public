@@ -1,5 +1,6 @@
 package MiniCash.listener;
 
+import MiniCash.Database.DatabaseManager;
 import MiniCash.ItemSearch;
 import MiniCash.model.ContainerModel;
 import MiniCash.model.ItemData;
@@ -52,7 +53,7 @@ public class InventoryClosedEvent implements Listener {
                 y = loc.getBlockY();
                 z = loc.getBlockZ();
 
-                containerId = "BLOCK_" + plugin.getServer().getName() + "_" + world + "_" + x + "_" + y + "_" + z;
+                containerId = "BLOCK_" + ItemSearch.getServerName() + "_" + world + "_" + x + "_" + y + "_" + z;
 
             } else if (event.getView().getType() == InventoryType.ENDER_CHEST) {
 
@@ -74,7 +75,7 @@ public class InventoryClosedEvent implements Listener {
                 y = location.getBlockY();
                 z = location.getBlockZ();
 
-                containerId = "PLAYER_INVENTORY_" + plugin.getServer().getName() + "_" + player.getUniqueId();
+                containerId = "PLAYER_INVENTORY_" + ItemSearch.getServerName() + "_" + player.getUniqueId();
 
             } else {
                 return;
@@ -175,12 +176,12 @@ public class InventoryClosedEvent implements Listener {
 
             ContainerModel containerModel = new ContainerModel(
                     containerId, containerType, player.getName(), player.getUniqueId().toString(),
-                    plugin.getServer().getName(), world, x, y, z, itemMap
+                    ItemSearch.getServerName(), world, x, y, z, itemMap
             );
 
 
             // DB保存処理
-
+            DatabaseManager.saveContainerData(containerModel);
 
 
 
