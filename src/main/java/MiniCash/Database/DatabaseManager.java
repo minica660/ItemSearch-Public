@@ -4,6 +4,7 @@ import MiniCash.ItemSearch;
 import MiniCash.model.ContainerModel;
 import MiniCash.model.ItemData;
 import MiniCash.model.SearchResult;
+import MiniCash.model.TopResult;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.bukkit.Material;
@@ -124,6 +125,7 @@ public class DatabaseManager {
                 
                     CREATE TABLE IF NOT EXISTS `item_log` (
                     `id` BIGINT NOT NULL AUTO_INCREMENT,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     `final_editor_name` VARCHAR(64) NULL,
                     `final_editor_uuid` VARCHAR(64) NULL,
                     `item_hash` VARCHAR(32) NOT NULL,
@@ -137,9 +139,9 @@ public class DatabaseManager {
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
                 """;
 
-        try (Connection conn = hikariSe.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql);
-             PreparedStatement itemLogPstmt = conn.prepareStatement(itemLogSQL)) {
+        try (Connection connection = hikariSe.getConnection();
+             PreparedStatement stmt = connection.prepareStatement(sql);
+             PreparedStatement itemLogPstmt = connection.prepareStatement(itemLogSQL)) {
             stmt.executeUpdate();
             itemLogPstmt.executeUpdate();
 
@@ -402,6 +404,7 @@ public class DatabaseManager {
                                 (Integer) rs.getObject("custom_model_data"),
                                 rs.getString("display_name"),
                                 rs.getInt("is_nested"),
+                                rs.getString("item_data"),
                                 rs.getString("server"),
                                 rs.getString("world"),
                                 (Integer) rs.getObject("x"),
@@ -465,5 +468,89 @@ public class DatabaseManager {
     }
 
 
+
+    /**
+     * 所持数ランキングの取得
+     *
+     * @param itemHash 完全一致検索用ハッシュ（優先）
+     * @param material Material検索用
+     * @param customModelData CMD検索用（Material指定時のみ有効）
+     * @param limit 取得上限件数 (例: 10)
+     * @return List<TopResult>
+     */
+    public static CompletableFuture<List<TopResult>> getTopHolders(
+            String itemHash, Material material, Integer customModelData, int limit) {
+
+        return CompletableFuture.supplyAsync(() -> {
+
+            List<MiniCash.model.TopResult> results = new ArrayList<>();
+
+            if (hikariSe == null || hikariSe.isClosed()) {
+                return results;
+            }
+
+            StringBuilder sql = new StringBuilder();
+            List<Object> params = new ArrayList<>();
+
+            // itemHashで実行
+            if (itemHash != null && !itemHash.isEmpty()) {
+                sql.append("SELECT `final_editor_name`, `final_editor_uuid`, `material`, `item_hash`, SUM(`amount`) AS `total_amount` ")
+                        .append("FROM `item_database` ")
+                        .append("WHERE `item_hash` = ? AND `final_editor_uuid` IS NOT NULL ")
+                        .append("GROUP BY `final_editor_uuid`, `final_editor_name`, `material`, `item_hash` ")
+                        .append("ORDER BY `total_amount` DESC LIMIT ?;");
+
+                params.add(itemHash);
+                params.add(limit);
+
+                // Materialから取得
+            } else if (material != null) {
+                sql.append("SELECT `final_editor_name`, `final_editor_uuid`, `material`, NULL AS `item_hash`, SUM(`amount`) AS `total_amount` ")
+                        .append("FROM `item_database` ")
+                        .append("WHERE `material` = ? AND `final_editor_uuid` IS NOT NULL ");
+
+                params.add(material.name());
+
+                if (customModelData != null) {
+                    sql.append("AND `custom_model_data` = ? ");
+                    params.add(customModelData);
+                }
+
+                sql.append("GROUP BY `final_editor_uuid`, `final_editor_name`, `material` ")
+                        .append("ORDER BY `total_amount` DESC LIMIT ?;");
+
+                params.add(limit);
+
+            } else {
+                return results;
+            }
+
+            try (Connection conn = hikariSe.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+
+                for (int i = 0; i < params.size(); i++) {
+                    pstmt.setObject(i + 1, params.get(i));
+                }
+
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        results.add(new MiniCash.model.TopResult(
+                                rs.getString("final_editor_name"),
+                                rs.getString("final_editor_uuid"),
+                                rs.getString("material"),
+                                rs.getString("item_hash"),
+                                rs.getInt("total_amount")
+                        ));
+                    }
+                }
+
+            } catch (SQLException e) {
+                plugin.getLogger().log(Level.SEVERE, "トップ所持者データの取得中にエラーが発生しました ", e);
+            }
+
+            return results;
+        });
+
+    }
 
 }

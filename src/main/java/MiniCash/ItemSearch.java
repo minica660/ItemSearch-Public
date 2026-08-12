@@ -1,9 +1,9 @@
 package MiniCash;
 
 import MiniCash.Database.DatabaseManager;
+import MiniCash.commands.TeleportCommand;
 import MiniCash.listener.BlockUpdateEvent;
-import MiniCash.listener.InventoryClosedEvent;
-import MiniCash.listener.PlayerLeaveEvent;
+import MiniCash.listener.InventoryEvent;
 import MiniCash.util.ItemSerializer;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -27,11 +27,11 @@ public final class ItemSearch extends JavaPlugin {
 
         DatabaseManager.connect();
 
-        getServer().getPluginManager().registerEvents(new InventoryClosedEvent(this), this);
-        getServer().getPluginManager().registerEvents(new PlayerLeaveEvent(this), this);
+        getServer().getPluginManager().registerEvents(new InventoryEvent(this), this);
         getServer().getPluginManager().registerEvents(new BlockUpdateEvent(this), this);
 
         registerCommand("itemsearch",new MiniCash.commands.ItemSearch(this));
+        registerCommand("itemsearchtp", new TeleportCommand(this));
 
 
         Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {

@@ -13,6 +13,7 @@ public record SearchResult(
         Integer customModelData,
         String displayName,
         int isNested,
+        String itemBase64,
         String server,
         String world,
         Integer x,
