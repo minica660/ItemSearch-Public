@@ -179,112 +179,140 @@ public class DatabaseManager {
             String deleteSql = "DELETE FROM `item_database` WHERE `container_id` = ?;";
 
             String insertSql = """
-                    INSERT INTO `item_database` (
-                        `container_id`, `container_type`, `item_hash`, `amount`, `material`,
-                        `custom_model_data`, `is_nested`, `display_name`, `item_data`,
-                        `server`, `world`, `x`, `y`, `z`, `final_editor_name`, `final_editor_uuid`
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-                """;
+                        INSERT INTO `item_database` (
+                            `container_id`, `container_type`, `item_hash`, `amount`, `material`,
+                            `custom_model_data`, `is_nested`, `display_name`, `item_data`,
+                            `server`, `world`, `x`, `y`, `z`, `final_editor_name`, `final_editor_uuid`
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """;
 
 
-            try (Connection conn = hikariSe.getConnection()) {
+            int maxRetries = 3;
+            int retryCount = 0;
+            boolean success = false;
+            while (retryCount < maxRetries && !success) {
 
-                conn.setAutoCommit(false);
+                try (Connection conn = hikariSe.getConnection()) {
 
-                try {
+                    conn.setAutoCommit(false);
 
-                    try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
-                        deleteStmt.setString(1, containerModel.containerId());
-                        deleteStmt.executeUpdate();
-                    }
+                    try {
 
-                    // データを新しく追加し 更新！
-                    try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
-                        for (ItemData item : containerModel.items().values()) {
-                            insertStmt.setString(1, containerModel.containerId());
-                            insertStmt.setString(2, containerModel.containerType());
-                            insertStmt.setString(3, item.getItemHash());
-                            insertStmt.setInt(4, item.getAmount());
-                            insertStmt.setString(5, item.getItemType());
+                        try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                            deleteStmt.setString(1, containerModel.containerId());
+                            deleteStmt.executeUpdate();
+                        }
 
-                            // customModelData
-                            if (item.getCustomModelData() != null) {
-                                insertStmt.setInt(6, item.getCustomModelData());
-                            } else {
-                                insertStmt.setNull(6, Types.INTEGER);
+                        // 受け取ったモデルのitemsにデータが入っていたらデータを新しく追加して更新！
+                        if (!containerModel.items().isEmpty()) {
+                            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                                for (ItemData item : containerModel.items().values()) {
+                                    insertStmt.setString(1, containerModel.containerId());
+                                    insertStmt.setString(2, containerModel.containerType());
+                                    insertStmt.setString(3, item.getItemHash());
+                                    insertStmt.setInt(4, item.getAmount());
+                                    insertStmt.setString(5, item.getItemType());
+
+                                    // customModelData
+                                    if (item.getCustomModelData() != null) {
+                                        insertStmt.setInt(6, item.getCustomModelData());
+                                    } else {
+                                        insertStmt.setNull(6, Types.INTEGER);
+                                    }
+
+                                    insertStmt.setInt(7, item.getIsNested());
+
+                                    // displayName
+                                    if (item.getDisplayName() != null) {
+                                        insertStmt.setString(8, item.getDisplayName());
+                                    } else {
+                                        insertStmt.setNull(8, Types.VARCHAR);
+                                    }
+
+                                    // itemBase64
+                                    if (item.getItemBase64() != null) {
+                                        insertStmt.setString(9, item.getItemBase64());
+                                    } else {
+                                        insertStmt.setNull(9, Types.LONGVARCHAR);
+                                    }
+
+                                    insertStmt.setString(10, containerModel.server());
+
+                                    // world
+                                    if (containerModel.world() != null) {
+                                        insertStmt.setString(11, containerModel.world());
+                                    } else {
+                                        insertStmt.setNull(11, Types.VARCHAR);
+                                    }
+
+                                    // x,y,z
+                                    if (containerModel.x() != null) {
+                                        insertStmt.setInt(12, containerModel.x());
+                                    } else {
+                                        insertStmt.setNull(12, Types.INTEGER);
+                                    }
+
+                                    if (containerModel.y() != null) {
+                                        insertStmt.setInt(13, containerModel.y());
+                                    } else {
+                                        insertStmt.setNull(13, Types.INTEGER);
+                                    }
+
+                                    if (containerModel.z() != null) {
+                                        insertStmt.setInt(14, containerModel.z());
+                                    } else {
+                                        insertStmt.setNull(14, Types.INTEGER);
+                                    }
+
+                                    insertStmt.setString(15, containerModel.editorName());
+                                    insertStmt.setString(16, containerModel.editorUuid());
+
+                                    insertStmt.addBatch();
+                                }
+
+
+                                insertStmt.executeBatch();
+
                             }
-
-                            insertStmt.setInt(7, item.getIsNested());
-
-                            // displayName
-                            if (item.getDisplayName() != null) {
-                                insertStmt.setString(8, item.getDisplayName());
-                            } else {
-                                insertStmt.setNull(8, Types.VARCHAR);
-                            }
-
-                            // itemBase64
-                            if (item.getItemBase64() != null) {
-                                insertStmt.setString(9, item.getItemBase64());
-                            } else {
-                                insertStmt.setNull(9, Types.LONGVARCHAR);
-                            }
-
-                            insertStmt.setString(10, containerModel.server());
-
-                            // world
-                            if (containerModel.world() != null) {
-                                insertStmt.setString(11, containerModel.world());
-                            } else {
-                                insertStmt.setNull(11, Types.VARCHAR);
-                            }
-
-                            // x,y,z
-                            if (containerModel.x() != null) {
-                                insertStmt.setInt(12, containerModel.x());
-                            } else {
-                                insertStmt.setNull(12, Types.INTEGER);
-                            }
-
-                            if (containerModel.y() != null) {
-                                insertStmt.setInt(13, containerModel.y());
-                            } else {
-                                insertStmt.setNull(13, Types.INTEGER);
-                            }
-
-                            if (containerModel.z() != null) {
-                                insertStmt.setInt(14, containerModel.z());
-                            } else {
-                                insertStmt.setNull(14, Types.INTEGER);
-                            }
-
-                            insertStmt.setString(15, containerModel.editorName());
-                            insertStmt.setString(16, containerModel.editorUuid());
-
-                            insertStmt.addBatch();
                         }
 
 
-                        insertStmt.executeBatch();
+                        conn.commit();
+                        success = true;
 
+                    } catch (SQLException e) {
+
+                        conn.rollback();
+
+                        if (e.getErrorCode() == 1213) {
+                            retryCount++;
+                            if (retryCount < maxRetries) {
+                                plugin.getLogger().warning("デッドロックが発生したためデータ保存再試行します (" + retryCount + "/" + maxRetries + "): " + containerModel.containerId());
+                                try {
+                                    Thread.sleep(50L * retryCount);
+                                } catch (InterruptedException ignored) {
+                                    Thread.currentThread().interrupt();
+                                }
+                            } else {
+                                plugin.getLogger().log(Level.SEVERE, "デッドロックの再試行上限である" + maxRetries + "回 に達したため保存を中止しました: " + containerModel.containerId(), e);
+                            }
+                        } else {
+                            // デットロック以外のエラーの場合
+                            plugin.getLogger().log(Level.SEVERE, "コンテナデータの保存処理中にエラーが発生したため、ロールバックしました : " + containerModel.containerId(), e);
+                            break;
+                        }
+
+
+                    } finally {
+                        conn.setAutoCommit(true);
                     }
 
-
-                    conn.commit();
-
                 } catch (SQLException e) {
-
-                    conn.rollback();
-                    plugin.getLogger().log(Level.SEVERE, "コンテナデータの保存処理中にエラーが発生したため、ロールバックしました: " + containerModel.containerId(), e);
-
-                } finally {
-                    conn.setAutoCommit(true);
+                    plugin.getLogger().log(Level.SEVERE, "DB接続の取得中にエラーが発生しました", e);
+                    break;
                 }
 
-            } catch (SQLException e) {
-                plugin.getLogger().log(Level.SEVERE, "DB接続の取得中にエラーが発生しました", e);
             }
-
 
         });
 
@@ -293,6 +321,7 @@ public class DatabaseManager {
 
     /**
      * 指定されたcontainerIdのデータをDBから削除
+     *
      * @param containerId 削除対象のID
      */
     public static void deleteContainerData(String containerId) {
@@ -321,20 +350,19 @@ public class DatabaseManager {
     }
 
 
-
-
     /**
      * 条件に応じたアイテムの検索
      */
     public static CompletableFuture<List<SearchResult>> searchItems(
-            Material material, Integer customModelData, String displayName, String editor, String world, Integer nearX, Integer nearZ, Integer radius , String itemHash) {
+            Material material, Integer customModelData, String displayName, String editor, String world, Integer
+                    nearX, Integer nearZ, Integer radius, String itemHash) {
 
 
         return CompletableFuture.supplyAsync(() -> {
 
             List<SearchResult> results = new ArrayList<>();
 
-            if (hikariSe == null || hikariSe.isClosed()){
+            if (hikariSe == null || hikariSe.isClosed()) {
 
                 return results;
 
@@ -427,7 +455,6 @@ public class DatabaseManager {
     }
 
 
-
     /**
      * 定期的にサーバー全体の特定のアイテム保有状況を集計し、item_logへ記録
      * * @param minCount ログに記録する最小個数のしきい値 (例: 5個以上)
@@ -439,19 +466,19 @@ public class DatabaseManager {
             }
 
             String sql = """
-            INSERT INTO item_log (
-                `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
-                `item_count`, `custom_model_data`, `date_time`
-            )
-            SELECT 
-                `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
-                SUM(`amount`) as `item_count`, `custom_model_data`, NOW()
-            FROM `item_database`
-            WHERE `final_editor_uuid` IS NOT NULL
-            GROUP BY `final_editor_uuid`, `final_editor_name`, `item_hash`, `material`, `custom_model_data`
-            HAVING `item_count` >= ?
-            ORDER BY `item_count` DESC;
-        """;
+                        INSERT INTO item_log (
+                            `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
+                            `item_count`, `custom_model_data`, `date_time`
+                        )
+                        SELECT 
+                            `final_editor_name`, `final_editor_uuid`, `item_hash`, `material`,
+                            SUM(`amount`) as `item_count`, `custom_model_data`, NOW()
+                        FROM `item_database`
+                        WHERE `final_editor_uuid` IS NOT NULL
+                        GROUP BY `final_editor_uuid`, `final_editor_name`, `item_hash`, `material`, `custom_model_data`
+                        HAVING `item_count` >= ?
+                        ORDER BY `item_count` DESC;
+                    """;
 
             try (Connection conn = hikariSe.getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -468,14 +495,13 @@ public class DatabaseManager {
     }
 
 
-
     /**
      * 所持数ランキングの取得
      *
-     * @param itemHash 完全一致検索用ハッシュ（優先）
-     * @param material Material検索用
+     * @param itemHash        完全一致検索用ハッシュ（優先）
+     * @param material        Material検索用
      * @param customModelData CMD検索用（Material指定時のみ有効）
-     * @param limit 取得上限件数 (例: 10)
+     * @param limit           取得上限件数 (例: 10)
      * @return List<TopResult>
      */
     public static CompletableFuture<List<TopResult>> getTopHolders(

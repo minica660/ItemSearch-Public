@@ -26,7 +26,7 @@ public class TeleportCommand implements BasicCommand {
         if(commandSourceStack.getExecutor() instanceof Player player) {
 
             if (args.length < 5) {
-                player.sendMessage(Component.text("使用方法: /itemsearchtp <server> <world> <x> <y> <z>", NamedTextColor.RED));
+                player.sendMessage(ItemSearch.getMessage(Component.text("使用方法: /itemsearchtp <server> <world> <x> <y> <z>", NamedTextColor.RED)));
                 return;
             }
 
@@ -48,7 +48,7 @@ public class TeleportCommand implements BasicCommand {
 
             if (targetWorld == null) {
                 player.sendMessage(
-                        ItemSearch.getMessage(Component.text("ワールド '" + targetWorldName + "' が見つかりませんでした", NamedTextColor.RED))
+                        ItemSearch.getMessage(Component.text("指定したワールド:" + targetWorldName + "は見つかりませんでした", NamedTextColor.RED))
                 );
                 return;
             }

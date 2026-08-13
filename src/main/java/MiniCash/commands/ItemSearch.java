@@ -11,6 +11,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -43,7 +44,7 @@ public class ItemSearch implements BasicCommand {
         Player player = (Player) commandSourceStack.getSender();
 
         if (args.length == 0) {
-            helpMessage(player);
+            sendHelpMessage(player);
             return;
         }
 
@@ -63,7 +64,7 @@ public class ItemSearch implements BasicCommand {
         }
 
         if (argList.isEmpty()) {
-            helpMessage(player);
+            sendHelpMessage(player);
             return;
         }
 
@@ -73,7 +74,7 @@ public class ItemSearch implements BasicCommand {
         String sub = args[0].toLowerCase();
         Material material = null;
         Integer customModelData = null;
-        String name = null;
+        String displayName = null;
         String user = null;
         String world = null;
         Integer x = null, z = null, radius = null;
@@ -81,9 +82,10 @@ public class ItemSearch implements BasicCommand {
 
         switch (sub) {
             case "hand" -> {
+
                 ItemStack handItem = player.getInventory().getItemInMainHand();
                 if (handItem == null || handItem.getType().isAir()) {
-                    player.sendMessage(Component.text("メインハンドにアイテムを持っていません", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("メインハンドにアイテムを持っていません", NamedTextColor.RED)));
                     return;
                 }
 
@@ -93,39 +95,108 @@ public class ItemSearch implements BasicCommand {
                 String base64 = ItemSerializer.itemSerializer(item);
                 itemHash = ItemSerializer.getMD5Hash(base64);
 
+                if(args[1].equals("user")){
+                    user = args[2];
+                }else if(args[1].equals("near")){
+                    radius = 30;
+                    if (args.length >= 3) {
+                        try {
+                            radius = Integer.valueOf(args[1]);
+                        } catch (NumberFormatException e) {
+                            player.sendMessage(
+                                    MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
+                            );
+                            return;
+                        }
+                    }
+                    world = player.getWorld().getName();
+                    x = player.getLocation().getBlockX();
+                    z = player.getLocation().getBlockZ();
+                }
+
+
             }
             case "material" -> {
                 if (args.length < 2) {
-                    player.sendMessage(Component.text("使用方法: /itemsearch material <Material> [CMD]", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch material <Material> [CMD]", NamedTextColor.RED)));
                     return;
                 }
                 material = Material.matchMaterial(args[1]);
                 if (material == null) {
-                    player.sendMessage(Component.text(args[1] + "というMaterialは存在しません!", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text(args[1] + " というMaterialは存在しません!", NamedTextColor.RED)));
                     return;
                 }
-                if (args.length >= 3) {
-                    try {
-                        customModelData = Integer.parseInt(args[2]);
-                    } catch (NumberFormatException e) {
-                        player.sendMessage(
-                                Component.text(e.getMessage()).color(NamedTextColor.RED)
-                        );
-                        return;
+                if (args.length >= 4) {
+
+                    if (args[2].equals("cmd")) {
+
+                        try {
+                            customModelData = Integer.parseInt(args[3]);
+                        } catch (NumberFormatException e) {
+                            player.sendMessage(
+                                    MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
+                            );
+                            return;
+                        }
+
+                    }else if (args[2].equals("display")) {
+
+                        displayName = args[3];
+
+                    }else if (args[2].equals("user")) {
+                        user = args[3];
                     }
+                }
+                if(args.length >= 6) {
+
+                    if (args[4].equals("cmd")) {
+
+                        try {
+                            customModelData = Integer.parseInt(args[5]);
+                        } catch (NumberFormatException e) {
+                            player.sendMessage(
+                                    MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
+                            );
+                            return;
+                        }
+
+                    }else if (args[4].equals("display")) {
+                        displayName = args[5];
+                    }else if (args[4].equals("user")) {
+                        user = args[5];
+                    }
+
+                }else if(args.length >= 8){
+
+                    if(args[6].equals("cmd")) {
+                        try {
+                            customModelData = Integer.parseInt(args[7]);
+                        }catch (NumberFormatException e) {
+                            player.sendMessage(
+                                    MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
+                            );
+                            return;
+                        }
+
+                    }else if (args[6].equals("display")) {
+                        displayName = args[7];
+                    }else if (args[6].equals("user")) {
+                        user = args[7];
+                    }
+
                 }
 
             }
             case "display" -> {
                 if (args.length < 2) {
-                    player.sendMessage(Component.text("使用方法: /itemsearch display <displayName>", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch display <displayName>", NamedTextColor.RED)));
                     return;
                 }
-                name = args[1];
+                displayName = args[1];
             }
             case "user" -> {
                 if (args.length < 2) {
-                    player.sendMessage(Component.text("使用方法: /itemsearch user <player>", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch user <player>", NamedTextColor.RED)));
                     return;
                 }
                 user = args[1];
@@ -146,14 +217,14 @@ public class ItemSearch implements BasicCommand {
             case "cmd" -> {
 
                 if (args.length < 2) {
-                    player.sendMessage(Component.text("使用方法: /itemsearch cmd <cmd>", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch cmd <cmd>", NamedTextColor.RED)));
                     return;
                 }
 
                 try {
                     customModelData = Integer.parseInt(args[1]);
                 }catch (NumberFormatException e) {
-                    player.sendMessage(Component.text(e.getMessage()).color(NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED)));
                     return;
                 }
 
@@ -161,7 +232,7 @@ public class ItemSearch implements BasicCommand {
             case "top" -> {
 
                 if (args.length < 2) {
-                    player.sendMessage(Component.text("使用方法: /itemsearch top <hand | material> [Material] [CMD]", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch top <hand | material> [material] [CMD]", NamedTextColor.RED)));
                     return;
                 }
 
@@ -193,19 +264,19 @@ public class ItemSearch implements BasicCommand {
                     );
 
                     DatabaseManager.getTopHolders(hash, null, null, 10).thenAccept(topList -> {
-                        plugin.getServer().getScheduler().runTask(plugin, () -> renderTopResults(player, topList, handItem.getType().name() + " (完全一致)"));
+                        plugin.getServer().getScheduler().runTask(plugin, () -> sendsearchTopResult(player, topList, handItem.getType().name() + " (完全一致)"));
                     });
                     return;
 
                 } else if ("material".equals(topType)) {
                     if (args.length < 3) {
-                        player.sendMessage(Component.text("使用方法: /itemsearch top material <Material> [CMD]", NamedTextColor.RED));
+                        player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch top material <Material> [CMD]", NamedTextColor.RED)));
                         return;
                     }
 
                     Material matchMaterial = Material.matchMaterial(args[2]);
                     if (matchMaterial == null) {
-                        player.sendMessage(Component.text(args[2] + "というMaterialは存在しません!", NamedTextColor.RED));
+                        player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text(args[2] + " というMaterialは存在しません!", NamedTextColor.RED)));
                         return;
                     }
 
@@ -214,39 +285,43 @@ public class ItemSearch implements BasicCommand {
                         try {
                             cmd = Integer.parseInt(args[3]);
                         } catch (NumberFormatException e) {
-                            player.sendMessage(Component.text("数値を入力してください", NamedTextColor.RED));
+                            player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("数値を入力してください", NamedTextColor.RED)));
                             return;
                         }
                     }
 
-                    player.sendMessage(Component.text(matchMaterial.name() + " の所持ランキングを取得中...", NamedTextColor.DARK_AQUA));
+                    player.sendMessage(
+                            MiniCash.ItemSearch.getMessage(
+                                    Component.text(matchMaterial.name() + " の所持ランキングを取得中...", NamedTextColor.DARK_AQUA)
+                            )
+                    );
 
                     Integer finalCmd = cmd;
 
                     DatabaseManager.getTopHolders(null, matchMaterial, cmd, 10).thenAccept(topList -> {
                         String titleName = matchMaterial.name() + (finalCmd != null ? " [CMD:" + finalCmd + "]" : "");
-                        plugin.getServer().getScheduler().runTask(plugin, () -> renderTopResults(player, topList, titleName));
+                        plugin.getServer().getScheduler().runTask(plugin, () -> sendsearchTopResult(player, topList, titleName));
                     });
 
                     return;
 
                 } else {
-                    player.sendMessage(Component.text("使用方法: /itemsearch top <hand | material>", NamedTextColor.RED));
+                    player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("使用方法: /itemsearch top <hand | material>", NamedTextColor.RED)));
                     return;
                 }
 
             }
             default -> {
-                helpMessage(player);
+                sendHelpMessage(player);
                 return ;
             }
         }
 
         final int targetPage = page;
-        player.sendMessage(Component.text("データベースを検索中...", NamedTextColor.DARK_AQUA));
+        player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("データベースを検索中...", NamedTextColor.DARK_AQUA)));
 
-        DatabaseManager.searchItems(material, customModelData, name, user, world, x, z, radius , itemHash).thenAccept(results -> {
-            plugin.getServer().getScheduler().runTask(plugin, () -> renderCoreProtectStyle(player, results , targetPage , fullCommand));
+        DatabaseManager.searchItems(material, customModelData, displayName, user, world, x, z, radius , itemHash).thenAccept(results -> {
+            plugin.getServer().getScheduler().runTask(plugin, () -> sendSearchResult(player, results , targetPage , fullCommand));
         });
 
         return;
@@ -254,15 +329,15 @@ public class ItemSearch implements BasicCommand {
 
     }
 
-    private void renderCoreProtectStyle(Player player, List<SearchResult> results , int page ,String command) {
+    private void sendSearchResult(Player player, List<SearchResult> results , int page , String command) {
 
         if (results.isEmpty()) {
-            player.sendMessage(Component.text("該当するアイテムは見つかりませんでした", NamedTextColor.RED));
+            player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("該当するアイテムは見つかりませんでした", NamedTextColor.RED)));
             return;
         }
 
 
-        int pageSize = 5;
+        int pageSize = 7;
         int totalResults = results.size();
         int maxPage = (int) Math.ceil((double) totalResults / pageSize);
 
@@ -398,13 +473,13 @@ public class ItemSearch implements BasicCommand {
     }
 
 
-    private void renderTopResults(Player player, List<TopResult> topList, String targetName) {
+    private void sendsearchTopResult(Player player, List<TopResult> topList, String targetName) {
         if (topList.isEmpty()) {
-            player.sendMessage(Component.text("対象のアイテムを所持しているプレイヤーは見つかりませんでした", NamedTextColor.RED));
+            player.sendMessage(MiniCash.ItemSearch.getMessage(Component.text("対象のアイテムを所持しているプレイヤーは見つかりませんでした", NamedTextColor.RED)));
             return;
         }
 
-        player.sendMessage(Component.text("===== Item Possession Top 10 [" + targetName + "] =====", NamedTextColor.GOLD, TextDecoration.BOLD));
+        player.sendMessage(Component.text("===== アイテム所持ランキング Top 10 [" + targetName + "] =====", NamedTextColor.GOLD, TextDecoration.BOLD));
 
         int rank = 1;
         for (TopResult res : topList) {
@@ -434,7 +509,7 @@ public class ItemSearch implements BasicCommand {
     }
 
 
-    private void helpMessage(Player player) {
+    private void sendHelpMessage(Player player) {
         player.sendMessage(Component.text("=== MiniCash ItemSearch ヘルプ ===", NamedTextColor.DARK_AQUA));
         player.sendMessage(Component.text("/itemsearch hand ", NamedTextColor.AQUA).append(Component.text("- メインハンドのアイテムで検索", NamedTextColor.GRAY)));
         player.sendMessage(Component.text("/itemsearch material <Material> [CMD] ", NamedTextColor.AQUA).append(Component.text("- Material名で検索", NamedTextColor.GRAY)));
@@ -451,10 +526,16 @@ public class ItemSearch implements BasicCommand {
             return List.of("hand", "material", "display", "user", "near","cmd","top");
         }
 
+        String sub = args[0].toLowerCase();
+
         if (args.length == 2) {
-            String sub = args[0].toLowerCase();
-            // Material表示
-            if ("material".equals(sub)) {
+
+
+            if ("hand".equals(sub)) {
+                return List.of("user", "near");
+
+            } else if ("material".equals(sub)) {
+                // Material表示
                 String input = args[1].toLowerCase();
                 return stream(Material.values())
                         .filter(m -> !m.isAir())
@@ -463,7 +544,7 @@ public class ItemSearch implements BasicCommand {
                         .limit(20)
                         .toList();
             } else if ("user".equals(sub)) {
-                return org.bukkit.Bukkit.getOnlinePlayers().stream()
+                return Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
                         .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
                         .toList();
@@ -475,6 +556,38 @@ public class ItemSearch implements BasicCommand {
                 return List.of("hand", "material");
             }
 
+        }
+
+        if ("hand".equals(sub)) {
+            String handSub = args[1].toLowerCase();
+            if ("user".equals(handSub) && args.length == 3) {
+                return Bukkit.getOnlinePlayers().stream()
+                        .map(Player::getName)
+                        .filter(name -> name.toLowerCase().startsWith(args[2].toLowerCase()))
+                        .toList();
+            } else if ("near".equals(handSub) && args.length == 3) {
+                return List.of("10", "30", "50", "100");
+            }
+        }
+
+        if ("material".equals(sub)) {
+            if (args.length % 2 == 1) {
+
+                return List.of("cmd", "display", "user");
+
+            } else {
+                String option = args[args.length - 2].toLowerCase();
+                if ("user".equals(option)) {
+                    return Bukkit.getOnlinePlayers().stream()
+                            .map(Player::getName)
+                            .filter(name -> name.toLowerCase().startsWith(args[args.length - 1].toLowerCase()))
+                            .toList();
+                } else if ("cmd".equals(option)) {
+
+                    return List.of("1", "2", "3", "4", "5", "10");
+
+                }
+            }
         }
 
         if (args.length == 3 && "top".equals(args[0]) && "material".equals(args[1])) {
