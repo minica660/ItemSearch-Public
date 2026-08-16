@@ -95,23 +95,27 @@ public class ItemSearch implements BasicCommand {
                 String base64 = ItemSerializer.itemSerializer(item);
                 itemHash = ItemSerializer.getMD5Hash(base64);
 
-                if(args[1].equals("user")){
-                    user = args[2];
-                }else if(args[1].equals("near")){
-                    radius = 30;
-                    if (args.length >= 3) {
-                        try {
-                            radius = Integer.valueOf(args[1]);
-                        } catch (NumberFormatException e) {
-                            player.sendMessage(
-                                    MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
-                            );
-                            return;
+                if(args.length >= 2) {
+
+                    if (args[1].equals("user")) {
+                        user = args[2];
+                    } else if (args[1].equals("near")) {
+                        radius = 30;
+                        if (args.length >= 3) {
+                            try {
+                                radius = Integer.valueOf(args[1]);
+                            } catch (NumberFormatException e) {
+                                player.sendMessage(
+                                        MiniCash.ItemSearch.getMessage(Component.text(e.getMessage()).color(NamedTextColor.RED))
+                                );
+                                return;
+                            }
                         }
+                        world = player.getWorld().getName();
+                        x = player.getLocation().getBlockX();
+                        z = player.getLocation().getBlockZ();
                     }
-                    world = player.getWorld().getName();
-                    x = player.getLocation().getBlockX();
-                    z = player.getLocation().getBlockZ();
+
                 }
 
 
