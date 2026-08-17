@@ -38,11 +38,7 @@ public class InventoryEvent implements Listener {
         if (event.getPlayer() instanceof Player player){
 
 
-            String playerInventoryID = "PLAYER_INVENTORY_" + ItemSearch.getServerName() + "_" + player.getUniqueId();
-            saveInventoryData(player.getInventory(), playerInventoryID, "PLAYER", player, player.getLocation());
-
-            String enderChestID = "PLAYER_ENDERCHEST_" + player.getUniqueId();
-            saveInventoryData(player.getEnderChest(), enderChestID, "ENDER_CHEST", player, player.getLocation());
+            savePlayerAndEnderChest(player);
 
             Inventory inventory = event.getInventory();
 
@@ -216,6 +212,7 @@ public class InventoryEvent implements Listener {
         );
 
         DatabaseManager.saveContainerData(containerModel);
+
     }
 
 

@@ -1,17 +1,26 @@
 package MiniCash.util;
 
 import MiniCash.ItemSearch;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import org.bukkit.inventory.ItemStack;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class ItemSerializer {
 
     private static ItemSearch plugin;
+
+    // 最終アクセスから15分後に自動消去、最大20,000件まで保持する
+    private static final Cache<String, String> HASH_CACHE = CacheBuilder.newBuilder()
+            .expireAfterAccess(15, TimeUnit.MINUTES)
+            .maximumSize(20000)
+            .build();
 
     public ItemSerializer(ItemSearch plugin) {
         ItemSerializer.plugin = plugin;
@@ -51,8 +60,21 @@ public class ItemSerializer {
      * 同じアイテム化の確認用
      */
     public static String getMD5Hash(String base64String) {
-        if (base64String == null) return "null_hash";
 
+        if (base64String == null){
+            return "null_hash";
+        }
+
+        try {
+            return HASH_CACHE.get(base64String, () -> calculateMD5(base64String));
+        } catch (Exception e) {
+            return calculateMD5(base64String);
+        }
+
+
+    }
+
+    private static String calculateMD5(String base64String) {
         try {
 
             MessageDigest md = MessageDigest.getInstance("MD5");
@@ -70,9 +92,8 @@ public class ItemSerializer {
             return hexString.toString();
 
         } catch (NoSuchAlgorithmException e) {
-             plugin.getLogger().log(Level.SEVERE,"MD5アルゴリズムが見つかりませんでした", e);
-             return "null_hash";
+            plugin.getLogger().log(Level.SEVERE,"MD5アルゴリズムが見つかりませんでした", e);
+            return "null_hash";
         }
     }
-
 }
