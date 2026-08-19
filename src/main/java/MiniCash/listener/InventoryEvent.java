@@ -79,7 +79,7 @@ public class InventoryEvent implements Listener {
      * プレイヤーインベントリとエンダーチェストの保存
      */
     private void savePlayerAndEnderChest(Player player) {
-        String playerInventoryID = "PLAYER_INVENTORY_" + ItemSearch.getServerName() + "_" + player.getUniqueId();
+        String playerInventoryID = "PLAYER_INVENTORY_" + player.getUniqueId();
         saveInventoryData(player.getInventory(), playerInventoryID, "PLAYER", player, player.getLocation());
 
         String enderChestID = "PLAYER_ENDERCHEST_" + player.getUniqueId();
